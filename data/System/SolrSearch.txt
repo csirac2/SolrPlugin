@@ -2,4 +2,5 @@
 %META:TOPICPARENT{name="SolrPlugin"}%
 <!--
    * Set VIEW_TEMPLATE = SolrSearchView
+   * Set STYLESIDEBAR = on
 -->

@@ -43,7 +43,8 @@ sub initPlugin {
   Foswiki::Func::registerRESTHandler('similar', \&restSOLRSIMILAR);
   Foswiki::Func::registerRESTHandler('autocomplete', \&restSOLRAUTOCOMPLETE);
   Foswiki::Func::registerRESTHandler('optimize', \&restOPTIMIZE);
-
+  Foswiki::Func::registerRESTHandler('smartterms', \&restSOLRSMARTTERMS);
+  Foswiki::Func::registerRESTHandler('solrformat', \&restSOLRFORMAT);
   return 1;
 }
 
@@ -77,7 +78,7 @@ sub getIndexer {
 
 sub SOLRSEARCH {
   my ($session, $params, $theTopic, $theWeb) = @_;
-
+  
   return getSearcher($session)->handleSOLRSEARCH($params, $theWeb, $theTopic);
 }
 
@@ -99,6 +100,15 @@ sub SOLRSCRIPTURL {
   return getSearcher($session)->handleSOLRSCRIPTURL($params, $theWeb, $theTopic);
 }
 
+sub restSOLRFORMAT {
+    my $session = shift;
+    my $params = Foswiki::Func::getCgiQuery()->{param};
+    my $web = $session->{webName};
+    my $topic = $session->{topicName};
+    return getSearcher($session)->restSOLRFORMAT($web, $topic);
+    #use Data::Dumper;
+    #return Dumper($params);
+}
 
 sub restOPTIMIZE {
   my $session = shift;
@@ -122,7 +132,14 @@ sub restSOLRTERMS {
   my $topic = $session->{topicName};
   return getSearcher($session)->restSOLRTERMS($web, $topic);
 }
-
+sub restSOLRSMARTTERMS {
+    my $session = shift;
+    
+    my $web = $session->{webName};
+    my $topic = $session->{topicName};
+    return getSearcher($session)->restSOLRSMARTTERMS($web, $topic);
+}
+    
 sub restSOLRSIMILAR {
   my $session = shift;
 

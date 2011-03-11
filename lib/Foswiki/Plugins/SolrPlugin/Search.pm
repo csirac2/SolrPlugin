@@ -22,6 +22,7 @@ use Foswiki::Plugins ();
 use Foswiki::Plugins::JQueryPlugin ();
 use POSIX ();
 use Error qw(:try);
+use Data::Dumper;
 
 use constant DEBUG => 0; # toggle me
 use constant CONVERT_TOUTF8 => 1; # SMELL: I don't grok it
@@ -29,19 +30,22 @@ use constant CONVERT_TOUTF8 => 1; # SMELL: I don't grok it
 ##############################################################################
 sub handleSOLRSEARCH {
   my ($this, $params, $theWeb, $theTopic) = @_;
-
+  #$this->log(Dumper($params));
   #$this->log("called handleSOLRSEARCH(".$params->stringify.")") if DEBUG;
   return $this->inlineError("can't connect to solr server") unless defined $this->{solr};
 
   my $theId = $params->{id};
+  
   return '' if defined $theId && defined $this->{cache}{$theId};
-
+#   return Dumper($params);
+  
   my $theQuery = $params->{_DEFAULT} || $params->{search} || '';;
+#   return $theQuery;
   $theQuery = entityDecode($theQuery);
-  $params->{search} = $theQuery;
+  $params->{header_facetquery} = $theQuery;
   
   my $theJump = $params->{jump} || 'off';
-
+  #return $params->{header};
   if ($theJump eq 'on' && $theQuery) {
     # redirect to single-hit 
     my ($web, $topic) = Foswiki::Func::normalizeWebTopicName($theWeb, $theQuery);
@@ -54,7 +58,7 @@ sub handleSOLRSEARCH {
 
   my $response = $this->doSearch($theQuery, $params);
   my $result = '';
-
+#return Dumper($response);
   if ($response) {
     if (defined $theId) {
       $this->{cache}{$theId} = {
@@ -72,7 +76,7 @@ sub handleSOLRSEARCH {
 ##############################################################################
 sub handleSOLRFORMAT {
   my ($this, $params, $theWeb, $theTopic) = @_;
-
+# $this->log(Dumper($params));
   #$this->log("called handleSOLRFORMAT(".$params->stringify.")") if DEBUG;
   return '' unless defined $this->{solr};
 
@@ -453,7 +457,7 @@ sub renderPager {
 ##############################################################################
 sub restSOLRSEARCH {
   my ($this, $theWeb, $theTopic) = @_;
-
+# $this->log(Dumper($this->{cache}));
   return '' unless defined $this->{solr};
   my $query = Foswiki::Func::getCgiQuery();
 
@@ -475,7 +479,35 @@ sub restSOLRSEARCH {
 
   return $result."\n\n";
 }
+##############################################################################
+sub restSOLRFORMAT {
+  my ($this, $theWeb, $theTopic) = @_;
+  my $query = Foswiki::Func::getCgiQuery();
+#   my %params = map {$_ => $query->param($_)} $query->param();
+  my $conf = config();
+#   my $config = config();
+  my $confFacets = configFacets();
+  $conf->{_DEFAULT}=$query->param("search");
+  $conf->{search}=$query->param("search");
+#   return $conf->{search};
+#   %params = (config(),configFacets());
+#   return Dumper($confFacets->{header_facetquery});
+  handleSOLRSEARCH($this,$conf,$theWeb,$theTopic);
+  my $facets = Foswiki::Func::expandCommonVariables(handleSOLRFORMAT($this,$confFacets,$theWeb,$theTopic));
+  $facets =~ s/\$search/$conf->{search}/g;
+  $facets =~ s/\[/\"\[/g;
+  $facets =~ s/\]/\]\"/g;
+  #return handleSOLRFORMAT($this,$confFacets,$theWeb,$theTopic)
+  return "<div class='solrSearch accordion'>$facets</div>";
 
+  
+#   my $response = restSOLRSEARCH($theWeb,$theTopic);
+#   my $params = ;
+#   if($response){
+#     return $this->formatResponse($params, $theWeb, $theTopic,$response);
+#   }
+#   return $result;
+}
 ##############################################################################
 sub restSOLRAUTOCOMPLETE {
   my ($this, $theWeb, $theTopic) = @_;
@@ -686,7 +718,7 @@ sub restSOLRTERMS {
   my $theField = $query->param('field');
   my $theEllipsis = $query->param('ellipsis') || 'off';
   my $theLength = $query->param('length') || 0;
-
+#   return $query->param('q');
   if (defined $theLength) {
     $theLength =~ s/[^\d]//g;
   }
@@ -704,13 +736,22 @@ sub restSOLRTERMS {
     "terms.lower" => $theQuery,
     "terms.prefix" => $theQuery,
     "terms.lower.incl" => 'false',
-    "indent" => 'true',
+#     "terms.regex" => $theQuery,
+#     "terms.regex.flag" => 'case_insensitive',
+#     "qf" => 'web^100 topic^100',
+#     "qt" =>'dismax',
+    "terms.sort" => 'count'
+#     "indent" => 'on',
+
+# 	"bq" => 'web:'.$theQuery,
+# 	"qt" => 'dismax',
   };
 
-  $solrParams->{"fq"} = "(access_granted:$wikiUser OR access_granted:all)" 
+  $solrParams->{"fq"} = "(access_granted:$wikiUser OR access_granted:all)"
     unless Foswiki::Func::isAnAdmin($wikiUser);
 
   my $response = $this->{solr}->generic_solr_request('terms', $solrParams);
+#   my $response = $this->{solr}->generic_solr_request('select', $solrParams);
 
   my %struct = ();
   try {
@@ -748,7 +789,121 @@ sub restSOLRTERMS {
 
   return join("\n", @result)."\n\n";
 }
+sub restSOLRSMARTTERMS {
+  my ($this, $theWeb, $theTopic) = @_;
 
+  return '' unless defined $this->{solr};
+  my $query = Foswiki::Func::getCgiQuery();
+
+  my $theRaw = $query->param('raw') || 'off';
+  my $theQuery = ($query->param('q') || '*:*');
+  my $theFields = $query->param('fields') || '';
+  my $theField = $query->param('field');
+  my $theEllipsis = $query->param('ellipsis') || 'off';
+  my $theLength = $query->param('length') || 0;
+#   return $query->param('q');
+  if (defined $theLength) {
+    $theLength =~ s/[^\d]//g;
+  }
+  $theLength ||= 0;
+
+  my @fields = split(/\s*,\s*/, $theFields);
+  push(@fields, $theField) if defined $theField;
+  push(@fields, 'webtopic') unless @fields;
+
+  my $wikiUser = Foswiki::Func::getWikiName();
+  my $solrParams = {
+#     "terms" => 'true',
+#     "terms.fl" => \@fields,
+#     "terms.mincount" => 1,
+#     "terms.lower" => $theQuery,
+#     "terms.prefix" => $theQuery,
+#     "terms.lower.incl" => 'false',
+#     "terms.regex" => $theQuery,
+#     "terms.regex.flag" => 'case_insensitive',
+#     "qf" => 'web^100 topic^100',
+#     "qt" =>'dismax',
+#     "terms.sort" => 'count'
+#     "indent" => 'on',
+# 	"bq" => 'web:'.$theQuery,
+# 	"qt" => 'dismax',
+
+"q" => $theQuery." OR ".$theQuery."* OR ".$theQuery."~",
+	"qt" =>'standard',
+	"fl" => 'webtopic,url,type',
+	"qf" => 'webtopic^10 topic^5 web^5',
+	"qt" => 'standard',
+# # 	"fl" => \@fields,
+# # 	"fq" => \@fields,
+	"ps" =>"",
+	"pf" =>""
+
+# "facet"=>'true',
+# "facet.limit"=>10,
+# "facet.field"=>'webtopic',
+# "facet.mincount"=>1,
+# "indent"=>'true',
+# "wt"=>'json',
+# "rows"=>0,
+# "q"=>'*:*',
+# "facet.prefix"=>"$theQuery",
+# "fq" =>'webtopic'
+# "fl"=>'webtopic'
+  };
+
+#   $solrParams->{"fq"} = "(access_granted:$wikiUser OR access_granted:all)"
+#     unless Foswiki::Func::isAnAdmin($wikiUser);
+
+#   my $response = $this->{solr}->generic_solr_request('terms', $solrParams);
+  my $response = $this->{solr}->generic_solr_request('select', $solrParams);
+  my %struct = ();
+  my @arr = ();
+  try {
+#     %struct = @{$response->content->{response}{docs}};
+    @arr = @{$response->content->{response}{docs}};
+  } catch Error::Simple with {
+    # ignore
+  };
+#   return Dumper(@arr);
+
+     
+  my @result = ();
+  push(@result,"<strong>Search...<strong>|SolrSearch|");
+  foreach my $webtopic (@arr)
+  {
+    my $type = $this->mapToIconFileName($webtopic->{type});
+    my $puburlpath = Foswiki::Func::getPubUrlPath();
+    push(@result,"$webtopic->{webtopic}|webtopic|$webtopic->{url}|<img src='$puburlpath//System/FamFamFamSilkIcons/$type'/ title='$webtopic->{url}'>");
+  }
+#   foreach my $field (keys %struct) {
+#     while (my $term = shift @{$struct{$field}}) {
+#       my $freq = shift @{$struct{$field}};
+#       my $title = $term;
+# 
+#       my $strip = $theQuery;
+#       my $hilite = $theQuery;
+#       if ($theLength) {
+#         $strip = substr($theQuery, 0, -$theLength);
+#         $hilite = substr($theQuery, -$theLength);
+#       }
+#       $title =~ s/$strip/.../ if $theEllipsis eq 'on';
+# 
+#       my $line = "$term|$title|$hilite|$freq";
+#       push(@result, $line);
+#     }
+#   }
+#   if ($theRaw eq 'on') {
+#     my $result = '';
+#     try {
+#       $result = $response->raw_response->content();
+#     } catch Error::Simple with {
+#       #
+#     };
+#     return $result."\n\n";
+#   }
+
+  return join("\n", @result)."\n\n";
+}
 
 ##############################################################################
 sub doSearch {
@@ -766,6 +921,8 @@ sub doSearch {
   my $theExtraFilter = $params->{extrafilter};
   my $theFacet = $params->{facet};
 
+#my $data = Dumper($params);
+#$this->log("$data\n");
   $theQueryType = Foswiki::Func::expandTemplate("solr::defaultquerytype") unless $theQueryType =~ /^(standard|dismax)$/;
   $theQueryType = 'standard' unless defined $theQueryType;
 
@@ -883,7 +1040,7 @@ sub doSearch {
   my $response = $this->{solr}->search($query, $solrParams);
 
   #$this->log("response:\n".$response->raw_response->content()) if DEBUG;
-
+#$this->log(Dumper($response));
   return $response;
 }
 
@@ -1339,5 +1496,212 @@ sub getListOfWebs {
   return @webs;
 }
 
+################################################################################
+sub config {
+  #my %params = '';
+  return bless({include_type => '',
+  spellcheck => 'on',
+  facetlimit => '50,tag=100,contributor=10,category=50',
+  rows => '20',
+  display => 'list',
+  _RAW => '
+  id="Trin"
+  web="all"
+  jump=""
+  contributor=""
+  display="list"
+  origtopic="System.WebHome"
+  type="dismax"
+  start="0"
+  rows="20"
+  sort="score desc"
+  facets="Webs=web,
+  Recently changed=facetquery,
+  Media=type,
+  Category=category,
+  Tag=tag,
+  Application=field_TopicType_lst,
+  Top contributors=contributor
+  "
+  facetquery="
+  1 hour=returndate:[NOW-1HOUR TO NOW],
+  4 hours=date:[NOW-4HOUR TO NOW],
+  today=date:[NOW/DAY TO NOW],
+  2 days=date:[NOW/DAY-1DAY TO NOW],
+  7 days=date:[NOW/DAY-7DAY TO NOW],
+  1 month=date:[NOW-1MONTH TO NOW],
+  2 months=date:[NOW-2MONTH TO NOW],
+  1 year=date:[NOW-1YEAR TO NOW],
+  older=date:[* TO NOW/YEAR]
+  "
+  facetlimit="50,tag=100,contributor=10,category=50"
+  filter=""
+  extrafilter=" -field_TopicType_lst:Category"
+  spellcheck="on"
+  highlight="on"
+  correction="Did you mean <a href=\'$url\' class=\'solrCorrection\'>$correction</a>"
+  ',
+  web => 'all',
+  facetquery => '
+  1 hour=date:[NOW-1HOUR TO NOW],
+  4 hours=date:[NOW-4HOUR TO NOW],
+  today=date:[NOW/DAY TO NOW],
+  2 days=date:[NOW/DAY-1DAY TO NOW],
+  7 days=date:[NOW/DAY-7DAY TO NOW],
+  1 month=date:[NOW-1MONTH TO NOW],
+  2 months=date:[NOW-2MONTH TO NOW],
+  1 year=date:[NOW-1YEAR TO NOW],
+  older=date:[* TO NOW/YEAR]
+  ',
+  origtopic => 'System.WebHome',
+  _DEFAULT => '',
+  id => 'Trin',
+  highlight => 'on',
+  facets => 'Webs=web,
+  Recently changed=facetquery,
+  Media=type,
+  Category=category,
+  Tag=tag,
+  Application=field_TopicType_lst,
+  Top contributors=contributor
+  ',
+  contributor => '',
+  filter => '',
+  jump => '',
+  correction => 'Did you mean <a href=\'$url\' class=\'solrCorrection\'>$correction</a>',
+  extrafilter => ' -field_TopicType_lst:Category',
+  sort => 'score desc',
+  type => 'dismax',
+  start => '0'
+  },'Foswiki::Attrs');
+}
 
+################################################################################
+sub configFacets {
+  return bless({
+    header_facetquery => '<h2 id="dateFacet"><nop>$percntMAKETEXT{"$label"}$percnt</h2>
+    <div  class=\'solrFacetContainer \'>
+    <ul>',
+    exclude_facetquery => '',
+    exclude_web => '',
+    include_facetquery => '',
+    include_web => '',
+    format_field_TopicType_lst => '<li><a href=\'%SCRIPTURL{view}%/System/SolrSearch?filter=$id:$key&search=$search\'>
+    $key&nbsp;($count)</a></li>',
+    include_field_TopicType_lst => '',
+    exclude_type => '',
+    _DEFAULT => 'Trin',
+    footer_web => '</ul>
+    </div>',
+    footer_contributor => '</ul>
+    </div>',
+    format_type => '<li><a href=\'%SCRIPTURL{view}%/System/SolrSearch?filter=$id:$key&search=$search\'>$key&nbsp;($count)</a>
+    </li>',
+    format_contributor => '<li><a href=\'%SCRIPTURL{view}%/System/SolrSearch?filter=$id:$key&search=$search\'>$percntSPACEOUT{$key}$percnt&nbsp;($count)</a>
+    </li>',
+    format_web => '<li><a href=\'%SCRIPTURL{view}%/System/SolrSearch?filter=$id:$key&search=$search\'>$percntWEBLINK{"$key" format="$dollartitle"}$percnt&nbsp;($count)</a>
+    </li>',
+    format_facetquery => '<li><a href=\'%SCRIPTURL{view}%/System/SolrSearch?filter=$query&search=$search\'>$key&nbsp;($count)</a>
+    </li>',
+    header_field_TopicType_lst => '<h2><nop>$percntMAKETEXT{"$label"}$percnt</h2>
+    <div class=\'solrFacetContainer solrSort\'>
+    <ul>',
+    footer_facetquery => '</ul>
+    </div>',
+    header_type => '<h2 id="mediaFacet"><nop>$percntMAKETEXT{"$label"}$percnt</h2>
+    <div class=\'solrFacetPager\'>
+    <ul>',
+    include_contributor => '',
+    header_contributor => '<h2 id="contributorFacet"><nop>$percntMAKETEXT{"$label"}$percnt</h2>
+    <div class=\'solrFacetContainer \'>
+    <ul>',
+    exclude_contributor => 'UnknownUser&vbar;WikiGuest&vbar;(TWiki&vbar;Project)Contributor&vbar;AdminGroup',
+    footer_field_TopicType_lst => '</ul>
+    </div>',
+    exclude_field_TopicType_lst => 'TopicStub&vbar;TopicType&vbar;TaggedTopic&vbar;CategorizedTopic&vbar;DataForm',
+    header_web => '<h2 id="webFacet"><nop>$percntMAKETEXT{"$label"}$percnt</h2>
+    <div class=\'solrFacetContainer solrSort\'>
+    <ul>',
+    footer_type => '</ul>
+    </div>',
+    include_type => '',
+    },'Foswiki::Attrs');
+#   return bless({
+#     header_facetquery => '<div class=\'solrFacetContainer \'>
+#     <h2><nop>$percntMAKETEXT{"$label"}$percnt</h2>
+#     <div class=\'solrFacetPager\'>
+#     <ul>',
+#     exclude_facetquery => '',
+#     exclude_web => '',
+#     include_facetquery => '',
+#     include_web => '',
+#     format_field_TopicType_lst => '<li>
+#     <input type=\'checkbox\' autocomplete=\'off\' class=\'solrFacetValue solrFacetValue_field_TopicType_lst\' value=\'$id:$key\' $percntIF{"not \'%title%\'=~\'^%\'" then="title=\'%title%\'"}$percnt id=\'$id:$key\' name=\'filter_field_TopicType_lst\' />
+# <label for=\'$id:$key\' style=\'display:block\'>$key&nbsp;($count)</label></li>',
+#     include_field_TopicType_lst => '',
+#     exclude_type => '',
+#     _DEFAULT => 'Trin',
+#     footer_web => '</ul>
+#     </div>
+#     <a href=\'#\' class="solrClear {facet:\'web\'}">Clear</a>
+#     <span class=\'foswikiClear\'></span>
+#     </div>',
+#     footer_contributor => '</ul>
+#     </div>
+#     <a href=\'#\' class="solrClear {facet:\'contributor\'}">Clear</a>
+#     <span class=\'foswikiClear\'></span>
+#     </div>',
+#     format_type => '<li>
+#     <input type=\'checkbox\' autocomplete=\'off\' class=\'solrFacetValue solrFacetValue_type\' value=\'$id:$key\' $percntIF{"not \'%title%\'=~\'^%\'" then="title=\'%title%\'"}$percnt id=\'$id:$key\' name=\'filter_type\' />
+# &nbsp;<label for=\'$id:$key\' style=\'display:block\'>$key&nbsp;($count)</label>
+#     </li>',
+#     format_contributor => '<li>
+#     <input type=\'checkbox\' autocomplete=\'off\' class=\'solrFacetValue solrFacetValue_contributor\' value=\'$id:$key\' $percntIF{"not \'$percntSPACEOUT{$key}$percnt\'=~\'^%\'" then="title=\'$percntSPACEOUT{$key}$percnt\'"}$percnt id=\'$id:$key\' name=\'filter_contributor\' />
+#  &nbsp;<label for=\'$id:$key\' style=\'display:block\'>$percntSPACEOUT{$key}$percnt&nbsp;($count)</label>
+#     </li>',
+#     format_web => '<li>
+#     <input type=\'checkbox\' autocomplete=\'off\' class=\'solrFacetValue solrFacetValue_web\' value=\'$id:$key\' $percntIF{"not \'$percntWEBLINK{"$key" format="$dollartitle"}$percnt\'=~\'^%\'" then="title=\'$percntWEBLINK{"$key" format="$dollartitle"}$percnt\'"}$percnt id=\'$id:$key\' name=\'filter_web\' />
+# &nbsp;<label for=\'$id:$key\' style=\'display:block\'>$percntWEBLINK{"$key" format="$dollartitle"}$percnt&nbsp;($count)</label>
+#     </li>',
+#     format_facetquery => '<li>
+#     <input type=\'radio\' autocomplete=\'off\' class=\'solrFacetValue solrFacetValue_facetquery\' value=\'$query\' $percntIF{"not \'$key\'=~\'^%\'" then="title=\'$key\'"}$percnt id=\'$query\' name=\'filter_facetquery\' />
+# &nbsp;<label for=\'$query\' style=\'display:block\'>$key&nbsp;($count)</label>
+#     </li>',
+#     header_field_TopicType_lst => '<div class=\'solrFacetContainer solrSort\'>
+#     <h2><nop>$percntMAKETEXT{"$label"}$percnt</h2>
+#     <div class=\'solrFacetPager\'>
+#     <ul>',
+#     footer_facetquery => '</ul>
+#     </div>
+#     <a href=\'#\' class="solrClear {facet:\'facetquery\'}">Clear</a>
+#     <span class=\'foswikiClear\'></span>
+#     </div>',
+#     header_type => '<div class=\'solrFacetContainer \'>
+#     <h2><nop>$percntMAKETEXT{"$label"}$percnt</h2>
+#     <div class=\'solrFacetPager\'>
+#     <ul>',
+#     include_contributor => '',
+#     header_contributor => '<div class=\'solrFacetContainer \'>
+#     <h2><nop>$percntMAKETEXT{"$label"}$percnt</h2>
+#     <div class=\'solrFacetPager\'>
+#     <ul>',
+#     exclude_contributor => 'UnknownUser&vbar;WikiGuest&vbar;(TWiki&vbar;Project)Contributor&vbar;AdminGroup',
+#     footer_field_TopicType_lst => '</ul>
+#     </div>
+#     <a href=\'#\' class="solrClear {facet:\'field_TopicType_lst\'}">Clear</a>
+#     <span class=\'foswikiClear\'></span>
+#     </div>',
+#     exclude_field_TopicType_lst => 'TopicStub&vbar;TopicType&vbar;TaggedTopic&vbar;CategorizedTopic&vbar;DataForm',
+#     header_web => '<div class=\'solrFacetContainer solrSort\'>
+#     <h2><nop>$percntMAKETEXT{"$label"}$percnt</h2>
+#     <div class=\'solrFacetPager\'>
+#     <ul>',
+#     footer_type => '</ul>
+#     </div>
+#     <a href=\'#\' class="solrClear {facet:\'type\'}">Clear</a>
+#     <span class=\'foswikiClear\'></span>
+#     </div>',
+#     include_type => ''
+#     },'Foswiki::Attrs');
+  }
 1;

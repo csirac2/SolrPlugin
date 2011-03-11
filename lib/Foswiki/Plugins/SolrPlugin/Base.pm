@@ -118,7 +118,7 @@ sub log {
   my ($this, $logString, $noNewLine) = @_;
 
   print STDERR "$logString".($noNewLine?'':"\n");
-  #Foswiki::Func::writeDebug($logString);
+  Foswiki::Func::writeDebug($logString);
 }
 
 sub isSkippedWeb {

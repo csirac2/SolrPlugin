@@ -75,7 +75,8 @@
 %{ ###########################################################################
    content: main definition that puts together all pieces
 }%
-%TMPL:DEF{"content"}%<div class='solrSearch'><noautolink>
+%TMPL:DEF{"content"}%
+<div class='solrSearch'><noautolink>
 %TMPL:P{"solr::title"}%<!-- -->
 %TMPL:P{"solr::header"}%
 %TMPL:P{"solr::hits"}%
@@ -365,12 +366,12 @@
           <th>%MAKETEXT{"Results per page"}%:</th>
           <td>
             <select class='foswikiSelect' id='solrRows'>
-              <option class='foswikiOption' %IF{"$'rows'='10' %IF{"'%TMPL:P{"solr::defaultrows"}%'='10'" then="or isempty 'rows'"}%" then="selected"}%>10</option>
-              <option class='foswikiOption' %IF{"$'rows'='20' %IF{"'%TMPL:P{"solr::defaultrows"}%'='20'" then="or isempty 'rows'"}%" then="selected"}%>20</option>
-              <option class='foswikiOption' %IF{"$'rows'='30' %IF{"'%TMPL:P{"solr::defaultrows"}%'='30'" then="or isempty 'rows'"}%" then="selected"}%>30</option>
-              <option class='foswikiOption' %IF{"$'rows'='40' %IF{"'%TMPL:P{"solr::defaultrows"}%'='40'" then="or isempty 'rows'"}%" then="selected"}%>40</option>
-              <option class='foswikiOption' %IF{"$'rows'='50' %IF{"'%TMPL:P{"solr::defaultrows"}%'='50'" then="or isempty 'rows'"}%" then="selected"}%>50</option>
-              <option class='foswikiOption' %IF{"$'rows'='100' %IF{"'%TMPL:P{"solr::defaultrows"}%'='100'" then="or isempty 'rows'"}%" then="selected"}%>100</option>
+              <option class='foswikiOption' %IF{"$'rows'='10' %IF{"'%TMPL:P{"solr::defaultrows"}%'='10'" then="or isempty 'rows'"}%" then="selected='selected'"}%>10</option>
+              <option class='foswikiOption' %IF{"$'rows'='20' %IF{"'%TMPL:P{"solr::defaultrows"}%'='20'" then="or isempty 'rows'"}%" then="selected='selected'"}%>20</option>
+              <option class='foswikiOption' %IF{"$'rows'='30' %IF{"'%TMPL:P{"solr::defaultrows"}%'='30'" then="or isempty 'rows'"}%" then="selected='selected'"}%>30</option>
+              <option class='foswikiOption' %IF{"$'rows'='40' %IF{"'%TMPL:P{"solr::defaultrows"}%'='40'" then="or isempty 'rows'"}%" then="selected='selected'"}%>40</option>
+              <option class='foswikiOption' %IF{"$'rows'='50' %IF{"'%TMPL:P{"solr::defaultrows"}%'='50'" then="or isempty 'rows'"}%" then="selected='selected'"}%>50</option>
+              <option class='foswikiOption' %IF{"$'rows'='100' %IF{"'%TMPL:P{"solr::defaultrows"}%'='100'" then="or isempty 'rows'"}%" then="selected='selected'"}%>100</option>
             </select>
           </td>
         </tr>
@@ -668,9 +669,9 @@
     <th>%MAKETEXT{"Sort by"}%:&nbsp;</th>
     <td>
       <select class='foswikiSelect' id='solrSorting'>
-        <option class='foswikiOption' value='score desc' %IF{"$'URLPARAM{sort}'='sort desc'" then="selected"}%>%MAKETEXT{"Relevance"}%</option>
-        <option class='foswikiOption' value='date desc' %IF{"$'URLPARAM{sort}'='date desc'" then="selected"}%>%MAKETEXT{"Last changed"}%</option>
-        <option class='foswikiOption' value='topic_sort asc' %IF{"$'URLPARAM{sort}'='topic_sort asc'" then="selected"}%>%MAKETEXT{"Name"}%</option>
+        <option class='foswikiOption' value='score desc' %IF{"$'URLPARAM{sort}'='sort desc'" then="selected='selected'"}%>%MAKETEXT{"Relevance"}%</option>
+        <option class='foswikiOption' value='date desc' %IF{"$'URLPARAM{sort}'='date desc'" then="selected='selected'"}%>%MAKETEXT{"Last changed"}%</option>
+        <option class='foswikiOption' value='topic_sort asc' %IF{"$'URLPARAM{sort}'='topic_sort asc'" then="selected='selected'"}%>%MAKETEXT{"Name"}%</option>
       </select>
     </td>
   </tr>
@@ -761,7 +762,7 @@
     [[%web%.%topic%][%topic%]]
     <span class='foswikiGrayText'>
       %WEBLINK{"%web%" 
-        format="<a class='webLink' href='$url'>%MAKETEXT{"in [_1]" args="$title"}%</a>"
+        format="<a class='webLink' href='$url'> $title %MAKETEXT{"in [_1]" args="$title"}%</a>"
       }%
     </span>
   </h3>
