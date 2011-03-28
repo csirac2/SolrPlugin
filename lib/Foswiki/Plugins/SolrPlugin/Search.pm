@@ -874,7 +874,7 @@ sub restSOLRSMARTTERMS {
   {
     my $type = $this->mapToIconFileName($webtopic->{type});
     my $puburlpath = Foswiki::Func::getPubUrlPath();
-    push(@result,"$webtopic->{webtopic}|webtopic|$webtopic->{url}|<img src='$puburlpath//System/FamFamFamSilkIcons/$type'/ title='$webtopic->{url}'>");
+    push(@result,"$webtopic->{webtopic}|webtopic|$webtopic->{url}|<img src='$puburlpath//System/FamFamFamSilkIcons/$type'/>");
   }
 #   foreach my $field (keys %struct) {
 #     while (my $term = shift @{$struct{$field}}) {
