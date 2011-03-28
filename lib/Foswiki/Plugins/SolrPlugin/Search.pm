@@ -828,15 +828,16 @@ sub restSOLRSMARTTERMS {
 # 	"bq" => 'web:'.$theQuery,
 # 	"qt" => 'dismax',
 
-"q" => $theQuery." OR ".$theQuery."* OR ".$theQuery."~",
-	"qt" =>'standard',
+# "q" => '(('.$theQuery.")^4 OR \"".$theQuery."\"* OR \"".$theQuery."\"~) AND (type:Topic^60 OR type:*)",
+'q' => $theQuery,
+	"qt" =>'dismax',
 	"fl" => 'webtopic,url,type',
-	"qf" => 'webtopic^10 topic^5 web^5',
-	"qt" => 'standard',
+# 	"qf" => 'topic,catchall',
+# 	"wt" => 'dismax',
 # # 	"fl" => \@fields,
 # # 	"fq" => \@fields,
-	"ps" =>"",
-	"pf" =>""
+# 	"ps" =>"",
+# 	"pf" =>""
 
 # "facet"=>'true',
 # "facet.limit"=>10,
