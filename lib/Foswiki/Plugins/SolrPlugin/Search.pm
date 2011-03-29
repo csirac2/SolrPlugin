@@ -1600,7 +1600,7 @@ sub configFacets {
     </li>',
     format_contributor => '<li><a href=\'%SCRIPTURL{view}%/System/SolrSearch?filter=$id:$key&search=$search\'>$percntSPACEOUT{$key}$percnt&nbsp;($count)</a>
     </li>',
-    format_web => '<li><a href=\'%SCRIPTURL{view}%/System/SolrSearch?filter=$id:$key&search=$search\'>$percntWEBLINK{"$key" format="$dollartitle"}$percnt&nbsp;($count)</a>
+    format_web => '<li><a href=\'%SCRIPTURL{view}%/System/SolrSearch?filter=$id:$key&search=$search\'>$key&nbsp;($count)</a>
     </li>',
     format_facetquery => '<li><a href=\'%SCRIPTURL{view}%/System/SolrSearch?filter=$query&search=$search\'>$key&nbsp;($count)</a>
     </li>',
