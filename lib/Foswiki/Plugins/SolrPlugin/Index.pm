@@ -329,56 +329,59 @@ sub indexTopic {
     if ($formDef) { # form definition found, if not the formfields aren't indexed
 
       my %seenFields = ();
-      foreach my $fieldDef (@{$formDef->getFields()}) {
-        my $attrs = $fieldDef->{attributes}; # TODO: check for Facet
-        my $name = $fieldDef->{name};
-        my $type = $fieldDef->{type};
-        my $field = $meta->get('FIELD', $name);
-        next unless $field;
+      my $formFields = $formDef->getFields();
+      if ($formFields) {
+				foreach my $fieldDef (@{$formFields}) {
+					my $attrs = $fieldDef->{attributes}; # TODO: check for Facet
+					my $name = $fieldDef->{name};
+					my $type = $fieldDef->{type};
+					my $field = $meta->get('FIELD', $name);
+					next unless $field;
 
-        # prevent from mall-formed formDefinitions 
-        if ($seenFields{$name}) {
-          $this->log("WARNING: walrofmed form definition for $web.$formName - field $name appear twice must be unique");
-          next;
-        }
-        $seenFields{$name} = 1;
+					# prevent from mall-formed formDefinitions 
+					if ($seenFields{$name}) {
+						$this->log("WARNING: walrofmed form definition for $web.$formName - field $name appear twice must be unique");
+						next;
+					}
+					$seenFields{$name} = 1;
 
-        my $value = $field->{value};
+					my $value = $field->{value};
 
-        # create a dynamic field indicating the field type to solr
+					# create a dynamic field indicating the field type to solr
 
-        # date
-        if ($type eq 'date') {
-          my $epoch = $value;
-          $epoch = Foswiki::Time::parseTime($value) unless $epoch =~ /^\d+$/;
-          $epoch ||= 0; # prevent formatTime to crap out
-          $value = Foswiki::Time::formatTime($epoch, 'iso', 'gmtime');
-          $doc->add_fields(
-            'field_'.$name.'_dt' => $value,
-          );
-        } 
+					# date
+					if ($type eq 'date') {
+						my $epoch = $value;
+						$epoch = Foswiki::Time::parseTime($value) unless $epoch =~ /^\d+$/;
+						$epoch ||= 0; # prevent formatTime to crap out
+						$value = Foswiki::Time::formatTime($epoch, 'iso', 'gmtime');
+						$doc->add_fields(
+							'field_'.$name.'_dt' => $value,
+						);
+					} 
 
-        # multi-valued types
-        elsif ($type =~ /^(checkbox|select|radio|textboxlist)$/ ||
-               $name =~ /TopicType/) { # TODO: make this configurable
-          foreach my $item (split(/\s*,\s*/, $value)) {
-            $doc->add_fields(
-              'field_'.$name.'_lst' => $item
-            );
-          }
-        }
+					# multi-valued types
+					elsif ($type =~ /^(checkbox|select|radio|textboxlist)$/ ||
+								 $name =~ /TopicType/) { # TODO: make this configurable
+						foreach my $item (split(/\s*,\s*/, $value)) {
+							$doc->add_fields(
+								'field_'.$name.'_lst' => $item
+							);
+						}
+					}
 
-        # make it a text field unless its name does not indicate otherwise
-        else {
-          my $fieldName = 'field_'.$name;
-          my $fieldType = '_s';
-          if ($fieldName =~ /(_(?:i|s|l|t|b|f|dt|lst))$/) {
-            $fieldType = $1;
-          }
-          $doc->add_fields(
-            $fieldName.$fieldType => $value,
-          );
-        }
+					# make it a text field unless its name does not indicate otherwise
+					else {
+						my $fieldName = 'field_'.$name;
+						my $fieldType = '_s';
+						if ($fieldName =~ /(_(?:i|s|l|t|b|f|dt|lst))$/) {
+							$fieldType = $1;
+						}
+						$doc->add_fields(
+							$fieldName.$fieldType => $value,
+						);
+					}
+				}
       }
     }
   }
