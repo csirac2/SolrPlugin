@@ -1534,8 +1534,11 @@ sub restSOLRFORMAT {
     case 4 {$confFacets = configContrib();}
     case 0 {$confFacets = configFacets();}
     };
-  $conf->{_DEFAULT}=$query->param("search");
-  $conf->{search}=$query->param("search");
+  my $search = $query->param("search");
+  $search =~ s/_/ /g;
+  $conf->{_DEFAULT}=$search;
+  $conf->{search}=$search;
+
   handleSOLRSEARCH($this,$conf,$theWeb,$theTopic);
   my $facets = Foswiki::Func::expandCommonVariables(handleSOLRFORMAT($this,$confFacets,$theWeb,$theTopic));
   $facets =~ s/\$search/$conf->{search}/g;
