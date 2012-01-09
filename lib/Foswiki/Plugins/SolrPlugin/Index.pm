@@ -560,8 +560,35 @@ sub getContentLanguage {
   my $prefsLanguage = Foswiki::Func::getPreferencesValue('CONTENT_LANGUAGE') || '';
   my $siteLanguage = $Foswiki::cfg{Site}{Locale} || 'en';
   $siteLanguage =~ s/_.*$//; # the prefix: e.g. de, en
+  my $supportedLanguages = {
+    'en' => 'en', 'english' => 'en',
+    'cjk' => 'cjk', 'chinese' => 'cjk',
+    'japanese' => 'cjk', 'korean' => 'cjk', 
+    'da' => 'da', 'danish' => 'da', 
+    'de' => 'de', 'german' => 'de', 
+    'es' => 'es', 'spanish' => 'es', 
+    'fi' => 'fi', 'finish' => 'fi', 
+    'fr' => 'fr', 'french' => 'fr', 
+    'it' => 'it', 'italian' => 'it', 
+    'nl' => 'nl', 'dutch' => 'nl', 
+    'pt' => 'pt', 'portuguese' => 'pt', 
+    'ru' => 'ru', 'russian' => 'ru', 
+    'se' => 'se', 'swedish' => 'se', 
+    'tr' => 'tr', 'turkish' => 'tr'
+  };
+  
+  if ( $Foswiki::cfg{SolrPlugin}{SupportedLanguages}
+    && ref($Foswiki::cfg{SolrPlugin}{SupportedLanguages}) ) {
+      $supportedLanguages = $Foswiki::cfg{SolrPlugin}{SupportedLanguages};
+  }
+  my $lang = $prefsLanguage || $siteLanguage || '';
+  my $contentLanguage = $supportedLanguages->{$lang};
 
-  my $contentLanguage = $Foswiki::cfg{SolrPlugin}{SupportedLanguages}{$prefsLanguage || $siteLanguage};
+  if (!$contentLanguage) {
+    $this->log(
+      "ERROR: No mapping for language '$lang', check SolrPlugin config");
+    $contentLanguage = $lang;
+  }
 
   #$this->log("contentLanguage=$contentLanguage");
 
